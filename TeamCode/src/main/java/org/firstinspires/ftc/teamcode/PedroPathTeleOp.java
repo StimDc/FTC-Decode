@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.pedroPathing;
+package org.firstinspires.ftc.teamcode;
 import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
@@ -10,6 +10,8 @@ import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.function.Supplier;
 
@@ -54,15 +56,13 @@ public class PedroPathTeleOp extends OpMode {
         if (!automatedDrive) {
             //Make the last parameter false for field-centric
             //In case the drivers want to use a "slowMode" you can scale the vectors
-
-            //This is the normal version to use in the TeleOp
             if (!slowMode) follower.setTeleOpDrive(
                     -gamepad1.left_stick_y,
                     -gamepad1.left_stick_x,
                     -gamepad1.right_stick_x,
                     true // Robot Centric
             );
-
+//
                 //This is how it looks with slowMode on
             else follower.setTeleOpDrive(
                     -gamepad1.left_stick_y * slowModeMultiplier,
@@ -70,6 +70,18 @@ public class PedroPathTeleOp extends OpMode {
                     -gamepad1.right_stick_x * slowModeMultiplier,
                     true // Robot Centric
             );
+            //if (Math.abs(gamepad1.left_stick_y) > 0.05 || Math.abs(gamepad1.left_stick_x) > 0.05 || Math.abs(gamepad1.right_stick_x) > 0.05) {
+            //    follower.setTeleOpDrive(
+            //            -gamepad1.left_stick_y,
+            //            -gamepad1.left_stick_x,
+            //            -gamepad1.right_stick_x,
+            //            true // Robot Centric
+            //    );
+            //}
+            //else {
+            //    follower.holdPoint(follower.getPose());
+            //}
+
         }
 
         //Automated PathFollowing
