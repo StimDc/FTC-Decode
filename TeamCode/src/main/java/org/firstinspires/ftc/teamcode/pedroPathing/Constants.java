@@ -43,13 +43,13 @@ public class Constants {
             .leftRearMotorDirection(DcMotorSimple.Direction.REVERSE)
             .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .xVelocity(64.37)
-            .yVelocity(52.82)
+            .xVelocity(52.82)
+            .yVelocity(64.37)
             ;
 
     public static PinpointConstants localizerConstants = new PinpointConstants()
-            .forwardPodY(8)
-            .strafePodX(12)
+            .forwardPodY(12)//12
+            .strafePodX(8)//8
             .distanceUnit(DistanceUnit.CM)
             .hardwareMapName("pinpoint")
             .encoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD)

@@ -1,118 +1,215 @@
 package org.firstinspires.ftc.teamcode;
+
 import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.math.Vector;
 import com.pedropathing.paths.HeadingInterpolator;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
-
-import java.util.function.Supplier;
+enum currentTeam{TEAM_RED, TEAM_BLUE};
 
 @Configurable
 @TeleOp
 public class PedroPathTeleOp extends OpMode {
+
+
     private Follower follower;
-    public static Pose startingPose; //See ExampleAuto to understand how to use this
-    private boolean automatedDrive;
-    private Supplier<PathChain> pathChain;
+    currentTeam team;
+    public static Pose startingPose = new Pose();
+    public static Pose redCloseStartingPose = new Pose();
+    public static Pose blueCloseStartingPose = new Pose();
+    public static Pose redFarStartingPose = new Pose();
+    public static Pose blueFarStartingPose = new Pose(55, 8, Math.toRadians(90));
     private TelemetryManager telemetryM;
-    private boolean slowMode = false;
-    private double slowModeMultiplier = 0.5;
+    private DcMotorEx intakeMotor, middleMotor, leftOuttakeMotor, rightOuttakeMotor;
+    private boolean isDriving = false;
+    private boolean setDriving = false;
+    private String[] startingLocation = {"Close Red", "Far Red", "Close Blue", "Far Blue"};
+    private int startingIndex = 0;
 
     @Override
     public void init() {
+
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(startingPose == null ? new Pose() : startingPose);
+
+        follower.setStartingPose(startingPose);
+
         follower.update();
+
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
 
-        pathChain = () -> follower.pathBuilder() //Lazy Curve Generation
-                .addPath(new Path(new BezierLine(follower::getPose, new Pose(45, 98))))
-                .setHeadingInterpolation(HeadingInterpolator.linearFromPoint(follower::getHeading, Math.toRadians(45), 0.8))
-                .build();
+        telemetry.addLine("PedroPath TeleOp Initialized");
+
+        //intakeMotor = hardwareMap.get(DcMotorEx.class, "intake");
+        //middleMotor = hardwareMap.get(DcMotorEx.class, "middle");
+//
+        //leftOuttakeMotor = hardwareMap.get(DcMotorEx.class, "lOutake");
+        //rightOuttakeMotor = hardwareMap.get(DcMotorEx.class, "rOutake");
+//
+        //leftOuttakeMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        //rightOuttakeMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//
+        //leftOuttakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        //rightOuttakeMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+
+        telemetry.update();
+    }
+    @Override
+    public void init_loop() {
+        if (gamepad1.yWasPressed())
+        {
+            startingIndex = (startingIndex + 1) % startingLocation.length;
+        }
+        telemetry.addData("Pozitie", startingLocation[startingIndex]);
+        telemetry.update();
     }
 
     @Override
     public void start() {
-        //The parameter controls whether the Follower should use break mode on the motors (using it is recommended).
-        //In order to use float mode, add .useBrakeModeInTeleOp(true); to your Drivetrain Constants in Constant.java (for Mecanum)
-        //If you don't pass anything in, it uses the default (false)
+
+        if (startingIndex == 0 || startingIndex == 1)
+            team = currentTeam.TEAM_RED;
+        else
+            team = currentTeam.TEAM_BLUE;
+        switch (startingIndex) {
+            case 0:
+                startingPose = redCloseStartingPose;
+                break;
+            case 1:
+                startingPose = redFarStartingPose;
+                break;
+            case 2:
+                startingPose = blueCloseStartingPose;
+                break;
+            case 3:
+                startingPose = blueFarStartingPose;
+                break;
+        }
+
+
         follower.startTeleopDrive();
     }
 
     @Override
     public void loop() {
-        //Call this once per loop
+
         follower.update();
+
+        Pose currentPose = follower.getPose();
+
+        Pose blueTargetPose = new Pose(
+                62,
+                82,
+                Math.toRadians(130)
+        );
+        Pose redTargetPose = new Pose(
+                82,
+                82,
+                Math.toRadians(50)
+        );
+
+        if (gamepad1.xWasPressed() && !follower.isBusy()) {
+            PathChain toRedGoal = follower.pathBuilder()
+                    .addPath(new BezierLine(follower.getPose(), redTargetPose))
+                    .setLinearHeadingInterpolation(follower.getHeading(), redTargetPose.getHeading())
+                    .build();
+            PathChain toBlueGoal = follower.pathBuilder()
+                    .addPath(new BezierLine(follower.getPose(), blueTargetPose))
+                    .setLinearHeadingInterpolation(follower.getHeading(), blueTargetPose.getHeading())
+                    .build();
+
+            if (team == currentTeam.TEAM_BLUE)
+                follower.followPath(toBlueGoal);
+            else
+                follower.followPath(toRedGoal);
+        }
+
+        if (gamepad1.xWasPressed() && follower.isBusy())
+            follower.breakFollowing();
+
+        if (gamepad1.rightStickButtonWasPressed())
+            if (team == currentTeam.TEAM_RED)
+                team = currentTeam.TEAM_BLUE;
+            else
+                team = currentTeam.TEAM_RED;
+
+        // -------- TELEOP DRIVE --------
+
+        if (!follower.isBusy()) {
+
+            double leftStickY = applyDeadzone(gamepad1.left_stick_y, 0.1);
+            double leftStickX = applyDeadzone(gamepad1.left_stick_x, 0.1);
+            double rightStickX = applyDeadzone(gamepad1.right_stick_x, 0.1);
+
+            isDriving = Math.abs(leftStickY) > 0 ||
+                    Math.abs(leftStickX) > 0 ||
+                    Math.abs(rightStickX) > 0;
+
+            if (isDriving) {
+
+                if (setDriving)
+                    follower.startTeleopDrive();
+
+                follower.setTeleOpDrive(
+                        -leftStickY,
+                        -leftStickX,
+                        -rightStickX,
+                        true
+                );
+
+                setDriving = false;
+
+            } else {
+
+                setDriving = true;
+                follower.holdPoint(follower.getPose());
+
+            }
+        }
+
+        // -------- TELEMETRY --------
+
+        Pose pose = follower.getPose();
+        Vector velocity = follower.getVelocity();
+
+        telemetryM.debug("X", pose.getX());
+        telemetryM.debug("Y", pose.getY());
+        telemetryM.debug("Heading", pose.getHeading());
+
+        telemetryM.debug("Vel X", velocity.getXComponent());
+        telemetryM.debug("Vel Y", velocity.getYComponent());
+        telemetryM.debug("Speed", velocity.getMagnitude());
+
+        telemetryM.debug("Driving", isDriving);
+        telemetryM.debug("Busy", follower.isBusy());
+
         telemetryM.update();
 
-        if (!automatedDrive) {
-            //Make the last parameter false for field-centric
-            //In case the drivers want to use a "slowMode" you can scale the vectors
-            if (!slowMode) follower.setTeleOpDrive(
-                    -gamepad1.left_stick_y,
-                    -gamepad1.left_stick_x,
-                    -gamepad1.right_stick_x,
-                    true // Robot Centric
-            );
-//
-                //This is how it looks with slowMode on
-            else follower.setTeleOpDrive(
-                    -gamepad1.left_stick_y * slowModeMultiplier,
-                    -gamepad1.left_stick_x * slowModeMultiplier,
-                    -gamepad1.right_stick_x * slowModeMultiplier,
-                    true // Robot Centric
-            );
-            //if (Math.abs(gamepad1.left_stick_y) > 0.05 || Math.abs(gamepad1.left_stick_x) > 0.05 || Math.abs(gamepad1.right_stick_x) > 0.05) {
-            //    follower.setTeleOpDrive(
-            //            -gamepad1.left_stick_y,
-            //            -gamepad1.left_stick_x,
-            //            -gamepad1.right_stick_x,
-            //            true // Robot Centric
-            //    );
-            //}
-            //else {
-            //    follower.holdPoint(follower.getPose());
-            //}
+        telemetry.addData("X", pose.getX());
+        telemetry.addData("Y", pose.getY());
+        telemetry.addData("Heading", pose.getHeading());
+        telemetry.addData("Busy", follower.isBusy());
+        telemetry.addData("Team", team == currentTeam.TEAM_RED ? "Red" : "Blue");
 
-        }
+        //telemetry.addData("Left Outtake Motor Speed", leftOuttakeMotor.getVelocity() * 28 / 60);
+        //telemetry.addData("Right Outtake Motor Speed", rightOuttakeMotor.getVelocity() * 28 / 60);
 
-        //Automated PathFollowing
-        if (gamepad1.aWasPressed()) {
-            follower.followPath(pathChain.get());
-            automatedDrive = true;
-        }
+        telemetry.update();
+    }
 
-        //Stop automated following if the follower is done
-        if (automatedDrive && (gamepad1.bWasPressed() || !follower.isBusy())) {
-            follower.startTeleopDrive();
-            automatedDrive = false;
-        }
-
-        //Slow Mode
-        if (gamepad1.rightBumperWasPressed()) {
-            slowMode = !slowMode;
-        }
-
-        //Optional way to change slow mode strength
-        if (gamepad1.xWasPressed()) {
-            slowModeMultiplier += 0.25;
-        }
-
-        //Optional way to change slow mode strength
-        if (gamepad2.yWasPressed()) {
-            slowModeMultiplier -= 0.25;
-        }
-
-        telemetryM.debug("position", follower.getPose());
-        telemetryM.debug("velocity", follower.getVelocity());
-        telemetryM.debug("automatedDrive", automatedDrive);
+    double applyDeadzone(double input, double deadzone) {
+        if (Math.abs(input) < deadzone) return 0;
+        return (input - Math.signum(input) * deadzone) / (1 - deadzone);
     }
 }
