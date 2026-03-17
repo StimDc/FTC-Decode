@@ -27,16 +27,16 @@ public class OuttakePIDFTuning extends OpMode {
     private DcMotorEx rightOuttakeMotor;
 
     // ---------- Tunables ----------
-    private double motorKp = 0.002;
-    private double motorKf = 0.0008;
+    private double motorKp = 28;
+    private double motorKf = 40;
     private double syncKp = 0.8;
-    private double syncKf = 0.0;
+    private double syncKf = 0.1;
 
     // ---------- Runtime state ----------
     private int currentStep = 2;
     private Coefficient selectedCoefficient = Coefficient.MOTOR_P;
 
-    private int highRpmTarget = 1000;
+    private int highRpmTarget = 1500;
     private int lowRpmTarget = 700;
     private int finalRpmTarget;
 

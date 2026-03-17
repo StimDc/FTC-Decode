@@ -35,14 +35,14 @@ public class PedroPathTeleOp extends OpMode {
     public static Pose finalStartingPose = new Pose();
     public static Pose redCloseStartingPose = new Pose(118, 130, Math.toRadians(126));
     public static Pose blueCloseStartingPose = new Pose(26, 130, Math.toRadians(54));
-    public static Pose redFarStartingPose = new Pose(89, 8, Math.toRadians(90));
-    public static Pose blueFarStartingPose = new Pose(55, 8, Math.toRadians(90));
-
+    public static Pose blueFarStartingPose = new Pose(55.81632653061225, 7.632653061224477, Math.toRadians(90));
+    public static Pose redFarStartingPose = new Pose(88.14285714285715, 7.632653061224477, Math.toRadians(90));
+    public static Pose storedPose = new Pose();
     // ---------- Field targets ----------
     private static final Pose BLUE_GOAL_CENTER = new Pose(11, 138);
     private static final Pose RED_GOAL_CENTER = new Pose(133, 138);
-    private static final Pose BLUE_AUTO_SHOOT_POSE = new Pose(64, 79, Math.toRadians(45));
-    private static final Pose RED_AUTO_SHOOT_POSE = new Pose(80, 79, Math.toRadians(135));
+    private static final Pose BLUE_AUTO_SHOOT_POSE = new Pose(72, 72, Math.toRadians(137));
+    private static final Pose RED_AUTO_SHOOT_POSE = new Pose(72, 72, Math.toRadians(43));
 
     // ---------- Intake / transfer ----------
     private static final double INTAKE_POWER_SCALE = 1.0;
@@ -50,13 +50,13 @@ public class PedroPathTeleOp extends OpMode {
 
     // ---------- Outtake velocity control ----------
     private static final double OUTTAKE_TICKS_PER_REV = 28.0; // Update for your motor encoder CPR.
-    private static final double OUTTAKE_VELOCITY_KP = 0.002;
-    private static final double OUTTAKE_VELOCITY_KF = 0.0008;
-    private static final double OUTTAKE_SYNC_KP = 0.8;
-    private static final double OUTTAKE_SYNC_KF = 0.0;
+    private static final double OUTTAKE_VELOCITY_KP = 10;
+    private static final double OUTTAKE_VELOCITY_KF = 12.5;
+    private static final double OUTTAKE_SYNC_KP = 0;
+    private static final double OUTTAKE_SYNC_KF = 0;
     private static final double OUTTAKE_SYNC_MAX_FRACTION = 0.25; // Caps sync correction to 25% of target.
-    private static final int OUTTAKE_TARGET_RPM = 1000;
-    private static final double OUTTAKE_READY_TOLERANCE_RPM = 60;
+    private static final double OUTTAKE_READY_TOLERANCE_RPM = 50;
+    private static int OUTTAKE_TARGET_RPM = 2600;
 
     // ---------- Runtime state ----------
     private final String[] startingLocations = {"Close Red", "Far Red", "Close Blue", "Far Blue"};
@@ -68,6 +68,7 @@ public class PedroPathTeleOp extends OpMode {
     private DcMotorEx middleMotor;
     private DcMotorEx leftOuttakeMotor;
     private DcMotorEx rightOuttakeMotor;
+    private double goalDistance;
 
     private TeamColor team;
     private int startingIndex = 0;
@@ -111,12 +112,13 @@ public class PedroPathTeleOp extends OpMode {
     @Override
     public void loop() {
         follower.update();
-
+        OUTTAKE_TARGET_RPM = shooterRPM(goalDistance * 0.0254); //inch to m
         // Mechanism and auto controls.
         updateOuttakeCommandFromDriver();
         runIntakeAndMiddle();
         runOuttakeVelocityControl();
         handleAutoPathControl();
+        handleStoredAutoPathControl();
 
         // Driver-controlled motion when not following a path.
         if (!follower.isBusy()) {
@@ -176,12 +178,13 @@ public class PedroPathTeleOp extends OpMode {
                 finalStartingPose = blueFarStartingPose;
                 break;
         }
+
     }
 
     private void runManualDriveControl() {
-        double leftStickY = applyDeadzone(gamepad1.left_stick_y, 0.1);
-        double leftStickX = applyDeadzone(gamepad1.left_stick_x, 0.1);
-        double rightStickX = applyDeadzone(gamepad1.right_stick_x, 0.1);
+        double leftStickY = gamepad1.left_stick_y;
+        double leftStickX = gamepad1.left_stick_x;
+        double rightStickX = gamepad1.right_stick_x;
 
         isDriving = Math.abs(leftStickY) > 0
                 || Math.abs(leftStickX) > 0
@@ -203,7 +206,7 @@ public class PedroPathTeleOp extends OpMode {
     private void updateTelemetry() {
         Pose pose = follower.getPose();
         Vector velocity = follower.getVelocity();
-        double goalDistance = distanceToTeamGoal(pose, team);
+        goalDistance = distanceToTeamGoal(pose, team);
 
         telemetryM.debug("X", pose.getX());
         telemetryM.debug("Y", pose.getY());
@@ -227,13 +230,6 @@ public class PedroPathTeleOp extends OpMode {
         telemetry.update();
     }
 
-    private double applyDeadzone(double input, double deadzone) {
-        if (Math.abs(input) < deadzone) {
-            return 0;
-        }
-        return (input - Math.signum(input) * deadzone) / (1 - deadzone);
-    }
-
     private void applyOuttakeVelocityPidf() {
         leftOuttakeMotor.setVelocityPIDFCoefficients(OUTTAKE_VELOCITY_KP, 0, 0, OUTTAKE_VELOCITY_KF);
         rightOuttakeMotor.setVelocityPIDFCoefficients(OUTTAKE_VELOCITY_KP, 0, 0, OUTTAKE_VELOCITY_KF);
@@ -241,21 +237,21 @@ public class PedroPathTeleOp extends OpMode {
 
     private void updateOuttakeCommandFromDriver() {
         // Gamepad2 B toggles outtake request on/off.
-        if (gamepad2.bWasPressed()) {
+        if (gamepad1.bWasPressed()) {
             outtakeRequested = !outtakeRequested;
         }
     }
 
     private void runIntakeAndMiddle() {
         // Either bumper toggles inversion for both intake motors.
-        if (gamepad2.leftBumperWasPressed() || gamepad2.rightBumperWasPressed()) {
+        if (gamepad1.leftBumperWasPressed() || gamepad1.rightBumperWasPressed()) {
             intakeMiddleInverted = !intakeMiddleInverted;
         }
 
         // Independent control:
         // RT -> intake, LT -> middle.
-        double intakeCommand = gamepad2.right_trigger;
-        double middleCommand = gamepad2.left_trigger;
+        double intakeCommand = -gamepad1.right_trigger;
+        double middleCommand = gamepad1.left_trigger > 0.1 ? 1 : 0;
 
         if (intakeMiddleInverted) {
             intakeCommand = -intakeCommand;
@@ -283,7 +279,26 @@ public class PedroPathTeleOp extends OpMode {
 
         follower.followPath(buildAutoPathForTeam(team));
     }
+    private void handleStoredAutoPathControl()
+    {
+        if (gamepad1.dpadDownWasPressed())
+            storedPose = new Pose(follower.getPose().getX(),follower.getPose().getY(), follower.getHeading());
 
+        if (!gamepad1.dpadUpWasPressed()) {
+            return;
+        }
+
+        if (storedPose == new Pose()) {
+            return;
+        }
+
+        if (follower.isBusy()) {
+            follower.breakFollowing();
+            return;
+        }
+
+        follower.followPath(buildAutoPathForStoredPosition(storedPose));
+    }
     private PathChain buildAutoPathForTeam(TeamColor selectedTeam) {
         Pose targetPose = getTeamShootPose(selectedTeam);
         return follower.pathBuilder()
@@ -291,7 +306,12 @@ public class PedroPathTeleOp extends OpMode {
                 .setLinearHeadingInterpolation(follower.getHeading(), targetPose.getHeading())
                 .build();
     }
-
+    private PathChain buildAutoPathForStoredPosition(Pose storedPose) {
+        return follower.pathBuilder()
+                .addPath(new BezierLine(follower.getPose(), storedPose))
+                .setLinearHeadingInterpolation(follower.getHeading(), storedPose.getHeading())
+                .build();
+    }
     private Pose getTeamGoalCenter(TeamColor selectedTeam) {
         return selectedTeam == TeamColor.BLUE ? BLUE_GOAL_CENTER : RED_GOAL_CENTER;
     }
@@ -354,4 +374,23 @@ public class PedroPathTeleOp extends OpMode {
     private double ticksPerSecondToRpm(double ticksPerSecond) {
         return ticksPerSecond * 60.0 / OUTTAKE_TICKS_PER_REV;
     }
+
+    //2600 rpm, 2m
+
+    private int shooterRPM(double distanceMeters)
+    {
+        double g = 9.81;
+        double tan56 = 1.483;
+        double cos56sq = 0.312;
+        double k = 0.5; //efficiency
+        double radius = 0.039; //shooter wheel radius in m
+        double heightDiff = 0.7; //height diff in m
+
+        double denom = 2 * cos56sq * (distanceMeters * tan56 - heightDiff);
+        if (denom <= 0)
+            return 0;
+        double ballSpeed = Math.sqrt((g * distanceMeters * distanceMeters) / denom);
+        return (int)((60 * ballSpeed) / (2 * Math.PI * radius * k));
+    }
+
 }
