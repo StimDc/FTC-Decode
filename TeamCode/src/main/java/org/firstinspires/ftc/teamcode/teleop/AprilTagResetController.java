@@ -26,12 +26,12 @@ public class AprilTagResetController {
         }
     }
 
-    public void update(Pose currentPose, Follower follower, Gamepad gamepad, Runnable onSuccessfulReset) {
+    public void update(Pose currentPose, Follower follower, Gamepad gamepad, Runnable onSuccessfulReset, Telemetry telemetry) {
         if (!available || odometryHelper == null) {
             return;
         }
 
-        odometryHelper.update(currentPose);
+        odometryHelper.update(currentPose, telemetry);
 
         if (gamepad.aWasPressed()) {
             lastResetApplied = odometryHelper.tryApplyReset(follower);

@@ -13,7 +13,6 @@ public class AprilTagOdometryReset extends OpMode {
     private static final double FIELD_CENTER_INCH = 72.0;
     private static final double CM_PER_INCH = 2.54;
 
-    // ---------- Runtime state ----------
     private Follower follower;
     private AprilTagOdometryHelper odometryHelper;
     private boolean odometryHelperAvailable = false;
@@ -27,6 +26,7 @@ public class AprilTagOdometryReset extends OpMode {
         try {
             odometryHelper = new AprilTagOdometryHelper();
             odometryHelper.init(hardwareMap);
+            odometryHelper.setKnownTagPoses(); // <-- important!
             odometryHelperAvailable = true;
         } catch (RuntimeException exception) {
             odometryHelper = null;
@@ -54,8 +54,10 @@ public class AprilTagOdometryReset extends OpMode {
             return;
         }
 
-        odometryHelper.update(follower.getPose());
+        // Update AprilTag odometry automatically
+        odometryHelper.update(follower.getPose(), telemetry);
 
+        // Reset odometry to stable tag pose
         if (gamepad1.aWasPressed()) {
             lastResetApplied = odometryHelper.tryApplyReset(follower);
         }
@@ -83,9 +85,11 @@ public class AprilTagOdometryReset extends OpMode {
         telemetry.addData("Odom Heading", odomPose.getHeading());
         telemetry.addData("AT Reset Ready", odometryHelperAvailable);
         telemetry.addData("Last Reset Applied", lastResetApplied);
+
         if (odometryHelper != null) {
             odometryHelper.addTelemetry(telemetry);
         }
+
         telemetry.update();
     }
 

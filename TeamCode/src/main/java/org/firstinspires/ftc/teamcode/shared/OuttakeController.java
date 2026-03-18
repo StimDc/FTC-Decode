@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 public class OuttakeController {
 
     private static final double OUTTAKE_TICKS_PER_REV = 28.0;
-    private static final double OUTTAKE_VELOCITY_KP = 10;
+    private static final double OUTTAKE_VELOCITY_KP = 12.5;
     private static final double OUTTAKE_VELOCITY_KF = 12.5;
     private static final double OUTTAKE_SYNC_KP = 0;
     private static final double OUTTAKE_SYNC_KF = 0;

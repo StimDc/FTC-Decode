@@ -170,76 +170,76 @@ public class ShotSequenceController {
                     return;
                 }
 
-                shotPathState = ShotPathState.WAITING_FOR_TAG_RESET;
+                //shotPathState = ShotPathState.WAITING_FOR_TAG_RESET;
                 shotResetWaitTimer.reset();
                 shotResetTimedOut = false;
                 follower.holdPoint(follower.getPose());
                 driveController.markExternalHoldApplied();
                 return;
 
-            case WAITING_FOR_TAG_RESET:
-                if (shotResetWaitTimer.seconds() > SHOT_RESET_WAIT_TIMEOUT_SECONDS) {
-                    cancelSequence(outtakeController, feedController);
-                    shotResetTimedOut = true;
-                    follower.holdPoint(follower.getPose());
-                    driveController.markExternalHoldApplied();
-                    return;
-                }
-
-                if (!aprilTagResetController.isAvailable()) {
-                    cancelSequence(outtakeController, feedController);
-                    follower.holdPoint(follower.getPose());
-                    driveController.markExternalHoldApplied();
-                    return;
-                }
-
-                AprilTagOdometryHelper helper = aprilTagResetController.getHelper();
-                if (helper == null) {
-                    cancelSequence(outtakeController, feedController);
-                    return;
-                }
-
-                if (!helper.isStablePoseReady()) {
-                    follower.holdPoint(follower.getPose());
-                    driveController.markExternalHoldApplied();
-                    return;
-                }
-
-                boolean resetApplied = helper.tryApplyReset(follower);
-                if (!resetApplied) {
-                    return;
-                }
-                shotResetTimedOut = false;
-
-                // Re-anchor hold target after pose reset to avoid controller pulling toward stale pre-reset target.
-                follower.holdPoint(follower.getPose());
-                driveController.markExternalHoldApplied();
-
-                Pose currentPose = follower.getPose();
-                Pose shotTargetPose = fieldTargets.getTeamShootPose(team, activeShotRange);
-                double distanceToShotPose = distanceBetweenPoses(currentPose, shotTargetPose);
-
-                if (distanceToShotPose > SHOT_RETRY_DISTANCE_THRESHOLD_INCH) {
-                    follower.followPath(buildPathToPose(follower, shotTargetPose));
-                    shotPathState = ShotPathState.SECOND_PATH_RUNNING;
-                    driveController.markExternalFollowStarted();
-                    return;
-                }
-
-                shotPathState = ShotPathState.IDLE;
-                shotOuttakeManaged = false;
-                return;
-
-            case SECOND_PATH_RUNNING:
-                if (follower.isBusy()) {
-                    return;
-                }
-
-                shotPathState = ShotPathState.IDLE;
-                shotOuttakeManaged = false;
-                follower.holdPoint(follower.getPose());
-                driveController.markExternalHoldApplied();
-                return;
+            //case WAITING_FOR_TAG_RESET:
+            //    if (shotResetWaitTimer.seconds() > SHOT_RESET_WAIT_TIMEOUT_SECONDS) {
+            //        cancelSequence(outtakeController, feedController);
+            //        shotResetTimedOut = true;
+            //        follower.holdPoint(follower.getPose());
+            //        driveController.markExternalHoldApplied();
+            //        return;
+            //    }
+//
+            //    if (!aprilTagResetController.isAvailable()) {
+            //        cancelSequence(outtakeController, feedController);
+            //        follower.holdPoint(follower.getPose());
+            //        driveController.markExternalHoldApplied();
+            //        return;
+            //    }
+//
+            //    AprilTagOdometryHelper helper = aprilTagResetController.getHelper();
+            //    if (helper == null) {
+            //        cancelSequence(outtakeController, feedController);
+            //        return;
+            //    }
+//
+            //    if (!helper.isStablePoseReady()) {
+            //        follower.holdPoint(follower.getPose());
+            //        driveController.markExternalHoldApplied();
+            //        return;
+            //    }
+//
+            //    boolean resetApplied = helper.tryApplyReset(follower);
+            //    if (!resetApplied) {
+            //        return;
+            //    }
+            //    shotResetTimedOut = false;
+//
+            //    // Re-anchor hold target after pose reset to avoid controller pulling toward stale pre-reset target.
+            //    follower.holdPoint(follower.getPose());
+            //    driveController.markExternalHoldApplied();
+//
+            //    Pose currentPose = follower.getPose();
+            //    Pose shotTargetPose = fieldTargets.getTeamShootPose(team, activeShotRange);
+            //    double distanceToShotPose = distanceBetweenPoses(currentPose, shotTargetPose);
+//
+            //    if (distanceToShotPose > SHOT_RETRY_DISTANCE_THRESHOLD_INCH) {
+            //        follower.followPath(buildPathToPose(follower, shotTargetPose));
+            //        shotPathState = ShotPathState.SECOND_PATH_RUNNING;
+            //        driveController.markExternalFollowStarted();
+            //        return;
+            //    }
+//
+            //    shotPathState = ShotPathState.IDLE;
+            //    shotOuttakeManaged = false;
+            //    return;
+//
+            //case SECOND_PATH_RUNNING:
+            //    if (follower.isBusy()) {
+            //        return;
+            //    }
+//
+            //    shotPathState = ShotPathState.IDLE;
+            //    shotOuttakeManaged = false;
+            //    follower.holdPoint(follower.getPose());
+            //    driveController.markExternalHoldApplied();
+            //    return;
         }
     }
 

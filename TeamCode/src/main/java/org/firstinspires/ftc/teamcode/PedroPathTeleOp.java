@@ -105,12 +105,13 @@ public class PedroPathTeleOp extends OpMode {
 
         driveController.refreshDrivingState(gamepad1);
 
-        aprilTagResetController.update(
-                pose,
-                follower,
-                gamepad1,
-                driveController::markExternalFollowStarted
-        );
+        //aprilTagResetController.update(
+        //        pose,
+        //        follower,
+        //        gamepad1,
+        //        driveController::markExternalFollowStarted,
+        //        telemetry
+        //);
 
         driveController.updateSlowModeCommand(gamepad1);
 
