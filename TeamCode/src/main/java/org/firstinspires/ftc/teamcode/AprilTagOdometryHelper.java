@@ -27,7 +27,7 @@ public class AprilTagOdometryHelper {
     // Camera orientation in robot frame, degrees.
     // Forward-facing webcam is often close to yaw=0, pitch=-90, roll=0.
     public static double CAMERA_YAW_DEG = 0.0;
-    public static double CAMERA_PITCH_DEG = -90.0;
+    public static double CAMERA_PITCH_DEG = -90.0; //10
     public static double CAMERA_ROLL_DEG = 0.0;
 
     // ---------- Field frame ----------
@@ -81,6 +81,7 @@ public class AprilTagOdometryHelper {
         visionPortal = new VisionPortal.Builder()
                 .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
                 .addProcessor(aprilTag)
+                .enableLiveView(true)
                 .build();
     }
 
@@ -227,14 +228,14 @@ public class AprilTagOdometryHelper {
     }
 
     private Pose convertDetectionToPedroPose(AprilTagDetection detection) {
-        double sdkX = detection.robotPose.getPosition().x;
-        double sdkY = detection.robotPose.getPosition().y;
-        double sdkYawRad = detection.robotPose.getOrientation().getYaw(AngleUnit.RADIANS);
+        double x = detection.robotPose.getPosition().x;
+        double y = detection.robotPose.getPosition().y;
 
-        double fieldX = FIELD_CENTER_INCH + sdkX;
-        double fieldY = FIELD_CENTER_INCH + sdkY;
-        double fieldHeading = normalizeAngle(sdkYawRad + HEADING_OFFSET_RAD);
-        return new Pose(fieldX, fieldY, fieldHeading);
+        double heading = normalizeAngle(-detection.robotPose
+                .getOrientation()
+                .getYaw(AngleUnit.RADIANS));
+
+        return new Pose(x, y, heading);
     }
 
     private boolean isPoseWithinField(Pose pose) {

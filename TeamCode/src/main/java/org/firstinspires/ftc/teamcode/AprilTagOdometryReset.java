@@ -80,7 +80,7 @@ public class AprilTagOdometryReset extends OpMode {
         Pose odomPose = follower.getPose();
         telemetry.addData("Odom X (cm)", inchesToCm(odomPose.getX()));
         telemetry.addData("Odom Y (cm)", inchesToCm(odomPose.getY()));
-        telemetry.addData("Odom Heading", odomPose.getHeading());
+        telemetry.addData("Odom Heading", Math.toDegrees(odomPose.getHeading()));
         telemetry.addData("AT Reset Ready", odometryHelperAvailable);
         telemetry.addData("Last Reset Applied", lastResetApplied);
         if (odometryHelper != null) {

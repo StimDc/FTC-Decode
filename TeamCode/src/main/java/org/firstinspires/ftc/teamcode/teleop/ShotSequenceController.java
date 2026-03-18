@@ -186,30 +186,30 @@ public class ShotSequenceController {
                     return;
                 }
 
-                if (!aprilTagResetController.isAvailable()) {
-                    cancelSequence(outtakeController, feedController);
-                    follower.holdPoint(follower.getPose());
-                    driveController.markExternalHoldApplied();
-                    return;
-                }
-
-                AprilTagOdometryHelper helper = aprilTagResetController.getHelper();
-                if (helper == null) {
-                    cancelSequence(outtakeController, feedController);
-                    return;
-                }
-
-                if (!helper.isStablePoseReady()) {
-                    follower.holdPoint(follower.getPose());
-                    driveController.markExternalHoldApplied();
-                    return;
-                }
-
-                boolean resetApplied = helper.tryApplyReset(follower);
-                if (!resetApplied) {
-                    return;
-                }
-                shotResetTimedOut = false;
+                //if (!aprilTagResetController.isAvailable()) {
+                //    cancelSequence(outtakeController, feedController);
+                //    follower.holdPoint(follower.getPose());
+                //    driveController.markExternalHoldApplied();
+                //    return;
+                //}
+//
+                //AprilTagOdometryHelper helper = aprilTagResetController.getHelper();
+                //if (helper == null) {
+                //    cancelSequence(outtakeController, feedController);
+                //    return;
+                //}
+//
+                //if (!helper.isStablePoseReady()) {
+                //    follower.holdPoint(follower.getPose());
+                //    driveController.markExternalHoldApplied();
+                //    return;
+                //}
+//
+                //boolean resetApplied = helper.tryApplyReset(follower);
+                //if (!resetApplied) {
+                //    return;
+                //}x
+                //shotResetTimedOut = false;
 
                 // Re-anchor hold target after pose reset to avoid controller pulling toward stale pre-reset target.
                 follower.holdPoint(follower.getPose());
