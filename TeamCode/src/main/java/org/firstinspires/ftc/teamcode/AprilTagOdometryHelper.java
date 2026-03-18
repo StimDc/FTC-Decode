@@ -30,10 +30,7 @@ public class AprilTagOdometryHelper {
     public static double CAMERA_ROLL_DEG = 0.0;
 
     // ---------- Field frame ----------
-    private static final double FIELD_MIN_INCH = 0.0;
-    private static final double FIELD_MAX_INCH = 144.0;
     private static final double HEADING_OFFSET_RAD = 0.0;
-    private static final double CM_PER_INCH = 2.54;
 
     // ---------- Stability / safety ----------
     private static final int STABLE_FRAMES_REQUIRED = 4;
@@ -89,9 +86,11 @@ public class AprilTagOdometryHelper {
     }
 
     public void setKnownTagPoses() {
+        tagFieldPoses.clear();
+
         // Add your AprilTag IDs and absolute field poses (in inches)
-        tagFieldPoses.put(20, new Pose(16.5904081632653, 131.14285714285714, -36));   // Blue Tag
-        tagFieldPoses.put(24, new Pose(127.4095918367347, 131.14285714285714, 216));  // Example Tag 2
+        tagFieldPoses.put(20, new Pose(16.5904081632653, 131.14285714285714, Math.toRadians(-36)));   // Blue Tag
+        tagFieldPoses.put(24, new Pose(127.4095918367347, 131.14285714285714, Math.toRadians(216)));  // Red Tag
     }
 
     public void update(Pose currentOdomPose, Telemetry telemetry) {
@@ -185,20 +184,28 @@ public class AprilTagOdometryHelper {
         telemetry.addData("AT Tag Name", latestTagName);
 
         if (latestVisionPose != null) {
-            telemetry.addData("AT Latest X (cm)", inchesToCm(latestVisionPose.getX()));
-            telemetry.addData("AT Latest Y (cm)", inchesToCm(latestVisionPose.getY()));
-            telemetry.addData("AT Latest Heading", latestVisionPose.getHeading());
+            telemetry.addData("AT Latest X (in)", round2(latestVisionPose.getX()));
+            telemetry.addData("AT Latest Y (in)", round2(latestVisionPose.getY()));
+            telemetry.addData("AT Latest Heading (deg)", round2(Math.toDegrees(latestVisionPose.getHeading())));
         } else telemetry.addLine("AT Latest: none");
 
         if (stableVisionPose != null) {
-            telemetry.addData("AT Stable X (cm)", inchesToCm(stableVisionPose.getX()));
-            telemetry.addData("AT Stable Y (cm)", inchesToCm(stableVisionPose.getY()));
-            telemetry.addData("AT Stable Heading", stableVisionPose.getHeading());
+            telemetry.addData("AT Stable X (in)", round2(stableVisionPose.getX()));
+            telemetry.addData("AT Stable Y (in)", round2(stableVisionPose.getY()));
+            telemetry.addData("AT Stable Heading (deg)", round2(Math.toDegrees(stableVisionPose.getHeading())));
         } else telemetry.addLine("AT Stable: none");
     }
 
     public boolean isStablePoseReady() {
         return stableVisionPose != null && stableFrameCount >= STABLE_FRAMES_REQUIRED;
+    }
+
+    public Pose getLatestVisionPose() {
+        return copyPose(latestVisionPose);
+    }
+
+    public Pose getStableVisionPose() {
+        return copyPose(stableVisionPose);
     }
 
     // ---------------- Internal helpers ----------------
@@ -305,8 +312,12 @@ public class AprilTagOdometryHelper {
         return angle;
     }
 
+    private Pose copyPose(Pose source) {
+        if (source == null) return null;
+        return new Pose(source.getX(), source.getY(), source.getHeading());
+    }
+
     private double round2(double val) { return Math.round(val * 100.0) / 100.0; }
-    private double inchesToCm(double inches) { return round2(inches * CM_PER_INCH); }
 
     private static class DetectionSelection {
         final AprilTagDetection detection;

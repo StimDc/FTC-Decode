@@ -18,6 +18,7 @@ public class AprilTagResetController {
         try {
             odometryHelper = new AprilTagOdometryHelper();
             odometryHelper.init(hardwareMap);
+            odometryHelper.setKnownTagPoses();
             available = true;
         } catch (RuntimeException exception) {
             odometryHelper = null;
@@ -59,6 +60,20 @@ public class AprilTagResetController {
 
     public AprilTagOdometryHelper getHelper() {
         return odometryHelper;
+    }
+
+    public Pose getLatestVisionPose() {
+        if (!available || odometryHelper == null) {
+            return null;
+        }
+        return odometryHelper.getLatestVisionPose();
+    }
+
+    public Pose getStableVisionPose() {
+        if (!available || odometryHelper == null) {
+            return null;
+        }
+        return odometryHelper.getStableVisionPose();
     }
 
     public void stop() {

@@ -71,6 +71,7 @@ public class PedroPathTeleOp extends OpMode {
         telemetryTimer.reset();
 
         telemetry.addLine("PedroPath TeleOp Initialized");
+        telemetry.addLine("A: reset odometry to stable AprilTag pose");
         telemetry.update();
     }
 
@@ -105,13 +106,13 @@ public class PedroPathTeleOp extends OpMode {
 
         driveController.refreshDrivingState(gamepad1);
 
-        //aprilTagResetController.update(
-        //        pose,
-        //        follower,
-        //        gamepad1,
-        //        driveController::markExternalFollowStarted,
-        //        telemetry
-        //);
+        aprilTagResetController.update(
+                pose,
+                follower,
+                gamepad1,
+                driveController::markExternalFollowStarted,
+                null
+        );
 
         driveController.updateSlowModeCommand(gamepad1);
 
@@ -245,6 +246,7 @@ public class PedroPathTeleOp extends OpMode {
         telemetry.addData("Shot", shotSequenceController.getShotPathState());
         telemetry.addData("AT Ready", aprilTagResetController.isAvailable());
         telemetry.addData("AT Reset Timeout", shotSequenceController.isShotResetTimedOut());
+        aprilTagResetController.addTelemetry(telemetry);
         telemetry.update();
     }
 

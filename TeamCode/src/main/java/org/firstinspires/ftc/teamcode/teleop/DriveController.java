@@ -89,11 +89,18 @@ public class DriveController {
             return;
         }
 
-        if (!holdPointActive) {
-            follower.holdPoint(follower.getPose());
-            holdPointActive = true;
-            teleopDriveActive = false;
+        if (holdPointActive) {
+            return;
         }
+
+        if (!teleopDriveActive) {
+            follower.startTeleopDrive();
+            teleopDriveActive = true;
+        }
+
+        // On stick release, command zero drive instead of snapping to a held point.
+        // This avoids coasting past the release point and then reversing to correct back.
+        follower.setTeleOpDrive(0, 0, 0, true);
     }
 
     public void markExternalFollowStarted() {
