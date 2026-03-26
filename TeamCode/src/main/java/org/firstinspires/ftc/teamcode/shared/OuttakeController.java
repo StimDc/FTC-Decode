@@ -8,8 +8,8 @@ public class OuttakeController {
     private static final double OUTTAKE_TICKS_PER_REV = 28.0;
     private static final double OUTTAKE_VELOCITY_KP = 12.5;
     private static final double OUTTAKE_VELOCITY_KF = 12.5;
-    private static final double OUTTAKE_SYNC_KP = 0;
-    private static final double OUTTAKE_SYNC_KF = 0;
+    private static final double OUTTAKE_SYNC_KP = 1;
+    private static final double OUTTAKE_SYNC_KF = 1;
     private static final double OUTTAKE_SYNC_MAX_FRACTION = 0.25;
     private static final double OUTTAKE_READY_TOLERANCE_RPM = 50;
 

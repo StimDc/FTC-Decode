@@ -1,42 +1,33 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
 import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.hardware.Gamepad;
 
 public class DriveController {
 
     private static final double DRIVER_STICK_DEADBAND = 0.02;
-    private static final double DRIVER_STICK_ACTIVATE_THRESHOLD = 0.02;
+    private static final double HOLD_CAPTURE_OUTER_DEADZONE = 0.15;
+    private static final double HOLD_CAPTURE_INNER_DEADZONE = 0.05;
     private static final double SLOW_MODE_TRANSLATION_SCALE = 0.4;
     private static final double SLOW_MODE_TURN_SCALE = 0.3;
 
     private boolean driving = false;
-    private boolean driverInputLatched = false;
     private boolean teleopDriveActive = false;
     private boolean holdPointActive = false;
     private boolean slowModeEnabled = false;
+    private Pose heldPose = null;
 
     public void onTeleOpStart() {
         teleopDriveActive = true;
         holdPointActive = false;
+        heldPose = null;
     }
 
     public void refreshDrivingState(Gamepad gamepad) {
-        double leftStickYRaw = gamepad.left_stick_y;
-        double leftStickXRaw = gamepad.left_stick_x;
-        double rightStickXRaw = gamepad.right_stick_x;
-
-        double maxStick = Math.max(
-                Math.abs(leftStickYRaw),
-                Math.max(Math.abs(leftStickXRaw), Math.abs(rightStickXRaw))
-        );
-
-        if (driverInputLatched) {
-            driverInputLatched = maxStick > DRIVER_STICK_DEADBAND;
-        } else {
-            driverInputLatched = maxStick > DRIVER_STICK_ACTIVATE_THRESHOLD;
-        }
-        driving = driverInputLatched;
+        driving = Math.abs(gamepad.left_stick_y) >= HOLD_CAPTURE_INNER_DEADZONE
+                || Math.abs(gamepad.left_stick_x) >= HOLD_CAPTURE_INNER_DEADZONE
+                || Math.abs(gamepad.right_stick_x) >= HOLD_CAPTURE_INNER_DEADZONE;
     }
 
     public void updateSlowModeCommand(Gamepad gamepad) {
@@ -55,62 +46,88 @@ public class DriveController {
         double leftStickX = applyDeadband(gamepad.left_stick_x);
         double rightStickX = applyDeadband(gamepad.right_stick_x);
 
-        if (follower.isBusy() && !driving) {
-            return;
+        double forwardInput = -leftStickY;
+        double strafeInput = -leftStickX;
+        double turnInput = -rightStickX;
+
+        if (slowModeEnabled) {
+            forwardInput *= SLOW_MODE_TRANSLATION_SCALE;
+            strafeInput *= SLOW_MODE_TRANSLATION_SCALE;
+            turnInput *= SLOW_MODE_TURN_SCALE;
         }
 
-        if (driving && follower.isBusy()) {
-            follower.breakFollowing();
-            teleopDriveActive = false;
-            holdPointActive = false;
-        }
+        boolean fadingOut = Math.abs(forwardInput) < HOLD_CAPTURE_OUTER_DEADZONE
+                && Math.abs(strafeInput) < HOLD_CAPTURE_OUTER_DEADZONE
+                && Math.abs(turnInput) < HOLD_CAPTURE_OUTER_DEADZONE;
+
+        boolean noInput = Math.abs(forwardInput) < HOLD_CAPTURE_INNER_DEADZONE
+                && Math.abs(strafeInput) < HOLD_CAPTURE_INNER_DEADZONE
+                && Math.abs(turnInput) < HOLD_CAPTURE_INNER_DEADZONE;
+
+        driving = !noInput;
 
         if (driving && shouldCancelAutomation) {
             cancelAutomation.run();
         }
 
-        if (driving) {
-            if (!teleopDriveActive) {
+        if (follower.isBusy()) {
+            if (noInput) {
+                return;
+            }
+
+            follower.breakFollowing();
+            teleopDriveActive = false;
+            holdPointActive = false;
+            heldPose = null;
+        }
+
+        if (noInput) {
+            if (!holdPointActive) {
+                if (heldPose == null) {
+                    heldPose = follower.getPose();
+                }
+                follower.holdPoint(heldPose);
+                holdPointActive = true;
+                teleopDriveActive = false;
+            }
+            return;
+        }
+
+        if (fadingOut) {
+            if (!holdPointActive && heldPose == null) {
+                heldPose = follower.getPose();
+            }
+
+            if (holdPointActive || !teleopDriveActive) {
                 follower.startTeleopDrive();
+                holdPointActive = false;
                 teleopDriveActive = true;
             }
 
-            double driveY = -leftStickY;
-            double driveX = -leftStickX;
-            double turn = -rightStickX;
-            if (slowModeEnabled) {
-                driveY *= SLOW_MODE_TRANSLATION_SCALE;
-                driveX *= SLOW_MODE_TRANSLATION_SCALE;
-                turn *= SLOW_MODE_TURN_SCALE;
-            }
-
-            holdPointActive = false;
-            follower.setTeleOpDrive(driveY, driveX, turn, true);
+            follower.setTeleOpDrive(forwardInput, strafeInput, turnInput, true);
             return;
         }
 
-        if (holdPointActive) {
-            return;
-        }
-
-        if (!teleopDriveActive) {
+        if (holdPointActive || !teleopDriveActive) {
             follower.startTeleopDrive();
+            holdPointActive = false;
             teleopDriveActive = true;
         }
 
-        // On stick release, command zero drive instead of snapping to a held point.
-        // This avoids coasting past the release point and then reversing to correct back.
-        follower.setTeleOpDrive(0, 0, 0, true);
+        heldPose = null;
+        follower.setTeleOpDrive(forwardInput, strafeInput, turnInput, true);
     }
 
     public void markExternalFollowStarted() {
         teleopDriveActive = false;
         holdPointActive = false;
+        heldPose = null;
     }
 
     public void markExternalHoldApplied() {
         teleopDriveActive = false;
         holdPointActive = true;
+        heldPose = null;
     }
 
     public boolean isDriving() {
