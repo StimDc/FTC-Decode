@@ -25,9 +25,25 @@ public class DriveController {
     }
 
     public void refreshDrivingState(Gamepad gamepad) {
-        driving = Math.abs(gamepad.left_stick_y) >= HOLD_CAPTURE_INNER_DEADZONE
-                || Math.abs(gamepad.left_stick_x) >= HOLD_CAPTURE_INNER_DEADZONE
-                || Math.abs(gamepad.right_stick_x) >= HOLD_CAPTURE_INNER_DEADZONE;
+        double leftStickY = applyDeadband(gamepad.left_stick_y);
+        double leftStickX = applyDeadband(gamepad.left_stick_x);
+        double rightStickX = applyDeadband(gamepad.right_stick_x);
+
+        double forwardInput = -leftStickY;
+        double strafeInput = -leftStickX;
+        double turnInput = -rightStickX;
+
+        if (slowModeEnabled) {
+            forwardInput *= SLOW_MODE_TRANSLATION_SCALE;
+            strafeInput *= SLOW_MODE_TRANSLATION_SCALE;
+            turnInput *= SLOW_MODE_TURN_SCALE;
+        }
+
+        boolean noInput = Math.abs(forwardInput) < HOLD_CAPTURE_INNER_DEADZONE
+                && Math.abs(strafeInput) < HOLD_CAPTURE_INNER_DEADZONE
+                && Math.abs(turnInput) < HOLD_CAPTURE_INNER_DEADZONE;
+
+        driving = !noInput;
     }
 
     public void updateSlowModeCommand(Gamepad gamepad) {
@@ -83,9 +99,7 @@ public class DriveController {
 
         if (noInput) {
             if (!holdPointActive) {
-                if (heldPose == null) {
-                    heldPose = follower.getPose();
-                }
+                heldPose = follower.getPose();   // capture at release, not earlier
                 follower.holdPoint(heldPose);
                 holdPointActive = true;
                 teleopDriveActive = false;
@@ -94,16 +108,13 @@ public class DriveController {
         }
 
         if (fadingOut) {
-            if (!holdPointActive && heldPose == null) {
-                heldPose = follower.getPose();
-            }
-
             if (holdPointActive || !teleopDriveActive) {
                 follower.startTeleopDrive();
                 holdPointActive = false;
                 teleopDriveActive = true;
             }
 
+            heldPose = null;
             follower.setTeleOpDrive(forwardInput, strafeInput, turnInput, true);
             return;
         }

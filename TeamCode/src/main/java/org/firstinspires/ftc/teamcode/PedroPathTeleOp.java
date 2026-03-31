@@ -55,6 +55,11 @@ public class PedroPathTeleOp extends OpMode {
     private Pose startingPose = new Pose();
     private double goalDistance;
 
+    public static double TARGET_RPM_SLEW_RATE_RPM_PER_SEC = 2500.0;
+
+    private final ElapsedTime targetRpmTimer = new ElapsedTime();
+    private int liveTargetRpm = 2600;
+    private int commandedTargetRpm = 2600;
     private final ElapsedTime telemetryTimer = new ElapsedTime();
 
     @Override
@@ -69,6 +74,10 @@ public class PedroPathTeleOp extends OpMode {
         shotSequenceController.init();
         aprilTagResetController.init(hardwareMap, telemetry);
         telemetryTimer.reset();
+
+        commandedTargetRpm = outtakeController.getTargetRpm();
+        liveTargetRpm = commandedTargetRpm;
+        targetRpmTimer.reset();
 
         telemetry.addLine("PedroPath TeleOp Initialized");
         telemetry.update();
@@ -93,6 +102,10 @@ public class PedroPathTeleOp extends OpMode {
         follower.startTeleopDrive();
         driveController.onTeleOpStart();
         follower.update();
+
+        commandedTargetRpm = outtakeController.getTargetRpm();
+        liveTargetRpm = commandedTargetRpm;
+        targetRpmTimer.reset();
     }
 
     @Override
@@ -101,26 +114,29 @@ public class PedroPathTeleOp extends OpMode {
         Pose pose = follower.getPose();
 
         goalDistance = fieldTargets.distanceToTeamGoal(pose, team);
-        outtakeController.setTargetRpm(ShooterBallistics.rpmForDistanceMeters(goalDistance * 0.0254)); // inch -> m
 
-        driveController.refreshDrivingState(gamepad1);
+        liveTargetRpm = (int) Math.round(
+                ShooterBallistics.rpmForDistanceMeters(goalDistance * 0.0254)
+        ); // inch -> m
+
+        double dtSeconds = Math.max(0.001, targetRpmTimer.seconds());
+        targetRpmTimer.reset();
+
+        int maxRpmStep = Math.max(
+                1,
+                (int) Math.round(TARGET_RPM_SLEW_RATE_RPM_PER_SEC * dtSeconds)
+        );
+
+        commandedTargetRpm = slewRpm(commandedTargetRpm, liveTargetRpm, maxRpmStep);
+        outtakeController.setTargetRpm(commandedTargetRpm);
+
         driveController.updateSlowModeCommand(gamepad1);
-
-        //aprilTagResetController.update(
-        //        pose,
-        //        follower,
-        //        gamepad1,
-        //        driveController::markExternalFollowStarted,
-        //        null
-        //);
+        driveController.refreshDrivingState(gamepad1);
 
         outtakeController.updateToggleFromDriver(
                 gamepad1,
                 () -> shotSequenceController.handleDriverOuttakeToggle(follower, outtakeController, feedController)
         );
-
-        outtakeController.runVelocityControl(leftOuttakeMotor, rightOuttakeMotor);
-        feedController.run(gamepad1, outtakeController.getState(), intakeMotor, middleMotor);
 
         shotSequenceController.handleAutoPathControl(
                 gamepad1,
@@ -143,6 +159,9 @@ public class PedroPathTeleOp extends OpMode {
                 shotSequenceController.isAutomationActive(feedController),
                 () -> shotSequenceController.onManualOverride(outtakeController, feedController)
         );
+
+        outtakeController.runVelocityControl(leftOuttakeMotor, rightOuttakeMotor);
+        feedController.run(gamepad1, outtakeController.getState(), intakeMotor, middleMotor);
 
         // When manually driving, run one extra update so stick commands are applied in the same loop.
         if (driveController.isDriving()) {
@@ -240,12 +259,27 @@ public class PedroPathTeleOp extends OpMode {
     private void updateCriticalTelemetry() {
         telemetry.addData("Driving", driveController.isDriving());
         telemetry.addData("Team", team == TeamColor.RED ? "Red" : "Blue");
+        telemetry.addData("Live Target RPM", liveTargetRpm);
+        telemetry.addData("Cmd Target RPM", commandedTargetRpm);
+        telemetry.addData("Left RPM F", outtakeController.getFilteredLeftRpm());
+        telemetry.addData("Right RPM F", outtakeController.getFilteredRightRpm());
+        telemetry.addData("Avg RPM F", outtakeController.getFilteredAverageRpm());
         telemetry.addData("Outtake", outtakeController.getState());
         telemetry.addData("Shot", shotSequenceController.getShotPathState());
         telemetry.addData("AT Ready", aprilTagResetController.isAvailable());
         telemetry.addData("AT Reset Timeout", shotSequenceController.isShotResetTimedOut());
-        aprilTagResetController.addTelemetry(telemetry);
+        //aprilTagResetController.addTelemetry(telemetry);
         telemetry.update();
+    }
+
+    private int slewRpm(int current, int target, int maxStep) {
+        if (target > current) {
+            return Math.min(target, current + maxStep);
+        }
+        if (target < current) {
+            return Math.max(target, current - maxStep);
+        }
+        return current;
     }
 
     private void toggleTeam() {

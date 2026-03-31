@@ -11,8 +11,8 @@ public final class ShooterBallistics {
         double g = 9.81;
         double tan56 = 1.483;
         double cos56sq = 0.312;
-        double k = 0.53; // efficiency
-        double radius = 0.039; // shooter wheel radius in m
+        double k = 0.47; // efficiency
+        double radius = 0.035; // shooter wheel radius in m
         double heightDiff = 0.7; // height diff in m
 
         double denom = 2 * cos56sq * (distanceMeters * tan56 - heightDiff);
@@ -21,6 +21,6 @@ public final class ShooterBallistics {
         }
 
         double ballSpeed = Math.sqrt((g * distanceMeters * distanceMeters) / denom);
-        return (int) ( 1.1 * ((60 * ballSpeed) / (2 * Math.PI * radius * k)));
+        return (int)((60 * ballSpeed) / (2 * Math.PI * radius * k));
     }
 }

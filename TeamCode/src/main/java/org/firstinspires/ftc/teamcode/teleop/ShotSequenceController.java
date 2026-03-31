@@ -15,8 +15,10 @@ import org.firstinspires.ftc.teamcode.shared.TeamColor;
 
 public class ShotSequenceController {
 
+
     private static final double SHOT_RETRY_DISTANCE_THRESHOLD_INCH = 2.0;
-    private static final double SHOT_RESET_WAIT_TIMEOUT_SECONDS = 1.5;
+    private static final double SHOT_RESET_WAIT_TIMEOUT_SECONDS = 2;
+    private static final double SHOOTING_TIMEOUT_SECONDS = 25.0;
 
     private final ElapsedTime shotResetWaitTimer = new ElapsedTime();
 
@@ -25,6 +27,7 @@ public class ShotSequenceController {
     private ShotPathState shotPathState = ShotPathState.IDLE;
     private boolean shotOuttakeManaged = false;
     private boolean shotResetTimedOut = false;
+    private Pose activeShotPose = null;
 
     public void init() {
         shotResetWaitTimer.reset();
@@ -46,7 +49,7 @@ public class ShotSequenceController {
             AprilTagResetController aprilTagResetController,
             FieldTargets fieldTargets
     ) {
-        if (gamepad.rightStickButtonWasPressed()) {
+        if (gamepad.rightStickButtonWasPressed() && !isAutomationActive(feedController)) {
             toggleTeamAction.run();
         }
 
@@ -62,6 +65,7 @@ public class ShotSequenceController {
         if (closeRequested || farRequested) {
             selectedShootRange = farRequested ? ShootRange.FAR : ShootRange.CLOSE;
             startSequence(selectedShootRange, team, follower, outtakeController, feedController, driveController, fieldTargets);
+            return;
         }
 
         if (gamepad.xWasPressed()) {
@@ -90,6 +94,7 @@ public class ShotSequenceController {
         }
 
         shotPathState = ShotPathState.IDLE;
+        activeShotPose = null;
         feedController.cancelAutoFeed();
         shotResetTimedOut = false;
         shotOuttakeManaged = false;
@@ -134,12 +139,13 @@ public class ShotSequenceController {
             FieldTargets fieldTargets
     ) {
         cancelSequence(outtakeController, feedController);
+
         activeShotRange = requestedRange;
+        activeShotPose = fieldTargets.getTeamShootPose(team, activeShotRange);
         shotPathState = ShotPathState.FIRST_PATH_RUNNING;
         shotOuttakeManaged = !outtakeController.isRequested();
 
         outtakeController.setRequested(true);
-        feedController.startAutoFeed();
         shotResetTimedOut = false;
         shotResetWaitTimer.reset();
 
@@ -147,8 +153,7 @@ public class ShotSequenceController {
             follower.breakFollowing();
         }
 
-        Pose shotTargetPose = fieldTargets.getTeamShootPose(team, activeShotRange);
-        follower.followPath(buildPathToPose(follower, shotTargetPose));
+        follower.followPath(buildPathToPose(follower, activeShotPose), true);
         driveController.markExternalFollowStarted();
     }
 
@@ -170,42 +175,53 @@ public class ShotSequenceController {
                     return;
                 }
 
+                follower.holdPoint(activeShotPose);
+                driveController.markExternalHoldApplied();
                 shotPathState = ShotPathState.AT_SHOOT_POSE;
                 shotResetWaitTimer.reset();
                 shotResetTimedOut = false;
-                follower.holdPoint(follower.getPose());
-                driveController.markExternalHoldApplied();
                 return;
+
             case AT_SHOOT_POSE:
-                if (follower.isBusy()) {
+                double shotPoseError = distanceBetweenPoses(follower.getPose(), activeShotPose);
+
+                if (shotPoseError <= SHOT_RETRY_DISTANCE_THRESHOLD_INCH) {
+                    shotPathState = ShotPathState.SHOOTING;
+                    shotResetWaitTimer.reset();
+                    feedController.startAutoFeed();   // start once
                     return;
                 }
-                outtakeController.setRequested(true);
-                shotPathState = ShotPathState.SHOOTING;
+
+                if (shotResetWaitTimer.seconds() >= SHOT_RESET_WAIT_TIMEOUT_SECONDS) {
+                    shotResetTimedOut = true;
+                    shotPathState = ShotPathState.SHOOTING;
+                    shotResetWaitTimer.reset();
+                    feedController.startAutoFeed();   // start once even if we timed out waiting
+                }
                 return;
+
             case SHOOTING:
-                if (shotResetWaitTimer.milliseconds() > 10000) {
-                    feedController.stop();
-                    outtakeController.setRequested(false);
-                    shotPathState = ShotPathState.IDLE;
-                    return;
+                if (!feedController.isAutoFeedActive()
+                        || shotResetWaitTimer.seconds() >= SHOOTING_TIMEOUT_SECONDS) {
+                    finishSequence(outtakeController, feedController);
+                    driveController.markExternalHoldApplied();
                 }
-                feedController.startAutoFeed();
                 return;
-            //case SECOND_PATH_RUNNING:
-            //    if (follower.isBusy()) {
-            //        return;
-            //    }
-            //    shotPathState = ShotPathState.IDLE;
-            //    shotOuttakeManaged = false;
-            //    follower.holdPoint(follower.getPose());
-            //    driveController.markExternalHoldApplied();
-            //    return;
         }
     }
+    private void finishSequence(OuttakeController outtakeController, FeedController feedController) {
+        shotPathState = ShotPathState.IDLE;
+        activeShotPose = null;
+        feedController.cancelAutoFeed();
 
+        if (shotOuttakeManaged) {
+            outtakeController.setRequested(false);
+        }
+        shotOuttakeManaged = false;
+    }
     private void cancelSequence(OuttakeController outtakeController, FeedController feedController) {
         shotPathState = ShotPathState.IDLE;
+        activeShotPose = null;
         feedController.cancelAutoFeed();
         shotResetTimedOut = false;
 
